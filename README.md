@@ -1,6 +1,7 @@
-# RAG Social Video Chatbot
+# 🎓 IBM Capstone: Agentic Social Video Analyzer
+**By Srilaya M**
 
-A full-stack RAG (Retrieval-Augmented Generation) chatbot that compares two social media videos — YouTube Shorts and Instagram Reels — using real transcript data, engagement metrics, and an AI chat interface.
+A full-stack RAG (Retrieval-Augmented Generation) agentic chatbot built as the Capstone Project for the **"Building Agents with Agentic AI"** course by **IBM Career Education Program**. It compares two social media videos — YouTube Shorts and Instagram Reels — using real transcript data, engagement metrics, and an AI chat interface powered by LangGraph.
 
 ## Demo
 
