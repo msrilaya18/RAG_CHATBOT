@@ -5,12 +5,11 @@ import MessageBubble from "./MessageBubble";
 
 const getApiBase = () => {
   if (typeof window !== "undefined") {
-    const hostname = window.location.hostname;
-    if (hostname === "localhost" || hostname === "127.0.0.1") {
+    if (window.location.port === "3000") {
       return "http://localhost:8000";
     }
   }
-  return "https://rag-chatbot-backend-otxc.onrender.com";
+  return "";
 };
 const API_BASE = getApiBase();
 
@@ -154,7 +153,7 @@ export default function ChatPanel({ sessionId, videoData }) {
                   });
                 } else if (chunk.type === "error") {
                   // Make 429 rate-limit errors human-friendly
-                  const is429 = chunk.content.includes("429") || chunk.content.toLowerCase().includes("quota") || chunk.content.toLowerCase().includes("rate");
+                  const is429 = chunk.content.includes("429") || /\b(quota|rate limit)\b/i.test(chunk.content);
                   const friendlyMsg = is429
                     ? "⚠️ Gemini API rate limit reached. Please wait 30–60 seconds and ask again. (Free-tier limit)"
                     : chunk.content;

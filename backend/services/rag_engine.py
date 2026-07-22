@@ -154,11 +154,11 @@ class RAGEngine:
                 break  # success – exit retry loop
             except Exception as exc:
                 err_str = str(exc)
-                is_rate_limit = "429" in err_str or "quota" in err_str.lower() or "rate" in err_str.lower()
-                if is_rate_limit and attempt < MAX_RETRIES - 1:
+                is_retriable = "429" in err_str or "503" in err_str or re.search(r'\b(quota|rate limit|overloaded)\b', err_str.lower())
+                if is_retriable and attempt < MAX_RETRIES - 1:
                     wait_secs = 15 * (attempt + 1)  # 15s, 30s, 45s back-off
                     logger.warning(
-                        "Gemini 429 rate-limit hit (attempt %d/%d). Waiting %ds before retry...",
+                        "Gemini API busy (429/503) (attempt %d/%d). Waiting %ds before retry...",
                         attempt + 1, MAX_RETRIES, wait_secs,
                     )
                     # Tell the frontend to wipe any partial tokens already streamed

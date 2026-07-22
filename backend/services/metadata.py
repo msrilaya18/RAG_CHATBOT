@@ -93,21 +93,7 @@ def get_youtube_metadata(url: str) -> dict:
                 info = ydl.extract_info(url, download=False) or {}
         except Exception as exc_flat:
             logger.warning("yt-dlp flat extraction also failed for YouTube URL %s: %s", url, exc_flat)
-            return {
-                "url": url,
-                "platform": "YouTube",
-                "title": "YouTube Video",
-                "creator": "Unknown Creator",
-                "follower_count": None,
-                "views": 100000,  # Best-effort defaults for engagement demo
-                "likes": 5000,
-                "comments": 250,
-                "hashtags": [],
-                "upload_date": "Unknown",
-                "duration": "Unknown",
-                "engagement_rate": 5.25,
-                "thumbnail_url": None,
-            }
+            raise ValueError(f"Failed to fetch metadata for YouTube URL {url}. Please try another link.")
 
     views = _safe_int(info.get("view_count"))
     likes = _safe_int(info.get("like_count"))
@@ -173,22 +159,7 @@ def get_instagram_metadata(url: str) -> dict:
             info = ydl.extract_info(url, download=False) or {}
     except Exception as exc:
         logger.warning("yt-dlp metadata extraction failed for Instagram URL %s: %s", url, exc)
-        # Return a best-effort placeholder so the app doesn't crash
-        return {
-            "url": url,
-            "platform": "Instagram",
-            "title": "Instagram Reel",
-            "creator": "Unknown",
-            "follower_count": None,
-            "views": 0,
-            "likes": 0,
-            "comments": 0,
-            "hashtags": [],
-            "upload_date": "Unknown",
-            "duration": "Unknown",
-            "engagement_rate": 0.0,
-            "thumbnail_url": None,
-        }
+        raise ValueError(f"Failed to fetch metadata for Instagram URL {url}. Instagram may be blocking the request.")
 
     likes = _safe_int(info.get("like_count"))
     comments = _safe_int(info.get("comment_count"))
