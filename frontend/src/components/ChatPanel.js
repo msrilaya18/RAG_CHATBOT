@@ -4,6 +4,9 @@ import React, { useState, useEffect, useRef } from "react";
 import MessageBubble from "./MessageBubble";
 
 const getApiBase = () => {
+  if (process.env.NEXT_PUBLIC_API_BASE) {
+    return process.env.NEXT_PUBLIC_API_BASE;
+  }
   if (typeof window !== "undefined") {
     if (window.location.port === "3000") {
       return "http://localhost:8000";

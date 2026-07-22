@@ -8,13 +8,16 @@ import AuthModal from "../components/AuthModal";
 import Dashboard from "../components/Dashboard";
 
 const getApiBase = () => {
+  if (process.env.NEXT_PUBLIC_API_BASE) {
+    return process.env.NEXT_PUBLIC_API_BASE;
+  }
   if (typeof window !== "undefined") {
     // In dev mode, Next.js runs on 3000 and FastAPI on 8000
     if (window.location.port === "3000") {
       return "http://localhost:8000";
     }
   }
-  // In production, Next.js is served by FastAPI, so relative paths work perfectly
+  // In production (single-container Docker), FastAPI serves frontend, so relative paths work
   return "";
 };
 const API_BASE = getApiBase();
