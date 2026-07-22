@@ -82,7 +82,7 @@ export default function InputForm({ onAnalyze, isLoading }) {
   return (
     <div className="input-form-container">
       <div className="input-form-header">
-        <h2>RAG Social Video Analyzer</h2>
+        <h2>IBM Capstone: Agentic Social Video Analyzer</h2>
         <p>
           Compare performance, scripts, and hooks of any two videos.
           <br />

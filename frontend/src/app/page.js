@@ -4,15 +4,18 @@ import React, { useState, useEffect } from "react";
 import InputForm from "../components/InputForm";
 import VideoCard from "../components/VideoCard";
 import ChatPanel from "../components/ChatPanel";
+import AuthModal from "../components/AuthModal";
+import Dashboard from "../components/Dashboard";
 
 const getApiBase = () => {
   if (typeof window !== "undefined") {
-    const hostname = window.location.hostname;
-    if (hostname === "localhost" || hostname === "127.0.0.1") {
+    // In dev mode, Next.js runs on 3000 and FastAPI on 8000
+    if (window.location.port === "3000") {
       return "http://localhost:8000";
     }
   }
-  return "https://rag-chatbot-backend-otxc.onrender.com";
+  // In production, Next.js is served by FastAPI, so relative paths work perfectly
+  return "";
 };
 const API_BASE = getApiBase();
 
@@ -23,9 +26,21 @@ export default function Home() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState(null);
   const [isRecovering, setIsRecovering] = useState(false);
+  
+  // Auth & Dashboard State
+  const [currentUser, setCurrentUser] = useState(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showDashboard, setShowDashboard] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // Recover session from localStorage on mount
+  // Recover session and user from localStorage on mount
   useEffect(() => {
+    const token = localStorage.getItem("auth_token");
+    if (token) {
+      // Decode token roughly to get user or just assume logged in for UI
+      setCurrentUser("User"); // We can just set a dummy name or decode the JWT
+    }
     const savedSession = localStorage.getItem("rag_session");
     if (savedSession) {
       try {
@@ -114,6 +129,39 @@ export default function Home() {
     localStorage.removeItem("rag_session");
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem("auth_token");
+    setCurrentUser(null);
+    setShowDashboard(false);
+  };
+
+  const handleSaveSession = async () => {
+    if (!sessionId || !videoA || !videoB) return;
+    setIsSaving(true);
+    try {
+      const token = localStorage.getItem("auth_token");
+      const res = await fetch(`${API_BASE}/api/save-session`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          session_id: sessionId,
+          video_a_meta: videoA,
+          video_b_meta: videoB
+        })
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err) {
+      alert("Failed to save session. Make sure you are logged in.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (isRecovering) {
     return (
       <main className="app-main-container">
@@ -128,16 +176,47 @@ export default function Home() {
   return (
     <main className="app-main-container">
       <header className="app-header">
-        <div className="header-logo">
-          <h1>Social RAG</h1>
-          <span className="logo-badge">V1.0</span>
+        <div className="header-logo" style={{cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '2px'}} onClick={() => setShowDashboard(false)}>
+          <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+            <h1>Agentic Social RAG</h1>
+            <span className="logo-badge">IBM Capstone</span>
+          </div>
+          <span style={{fontSize: '11px', color: '#94a3b8', paddingLeft: '2px'}}>By Srilaya M</span>
         </div>
-        {sessionId && (
-          <button className="btn btn-secondary reset-btn" onClick={handleReset}>
-            New Comparison
-          </button>
-        )}
+        <div className="header-actions" style={{display: 'flex', gap: '10px', alignItems: 'center'}}>
+          {sessionId && !showDashboard && (
+            <button className="btn btn-secondary reset-btn" onClick={handleReset}>
+              New Comparison
+            </button>
+          )}
+          {currentUser ? (
+            <>
+              {!showDashboard && (
+                <button className="btn btn-secondary" onClick={() => setShowDashboard(true)}>
+                  Dashboard
+                </button>
+              )}
+              <button className="btn btn-secondary" onClick={handleLogout}>
+                Logout
+              </button>
+            </>
+          ) : (
+            <button className="btn btn-primary" onClick={() => setShowAuthModal(true)}>
+              Login / Sign Up
+            </button>
+          )}
+        </div>
       </header>
+
+      {showAuthModal && (
+        <AuthModal 
+          onClose={() => setShowAuthModal(false)} 
+          onLoginSuccess={(username) => {
+            setCurrentUser(username);
+            setShowAuthModal(false);
+          }} 
+        />
+      )}
 
       {error && (
         <div className="error-alert-banner">
@@ -150,7 +229,9 @@ export default function Home() {
         </div>
       )}
 
-      {!sessionId ? (
+      {showDashboard ? (
+        <Dashboard onBack={() => setShowDashboard(false)} />
+      ) : !sessionId ? (
         <div className="welcome-section">
           <InputForm onAnalyze={handleAnalyze} isLoading={isAnalyzing} />
           
@@ -180,6 +261,18 @@ export default function Home() {
               <VideoCard video={videoA} label="Video A" />
               <VideoCard video={videoB} label="Video B" />
             </div>
+            {currentUser && (
+              <div style={{marginTop: '1.5rem', textAlign: 'center'}}>
+                <button 
+                  className={`btn ${saveSuccess ? 'btn-secondary' : 'btn-primary'}`} 
+                  style={{width: '100%'}}
+                  onClick={handleSaveSession}
+                  disabled={isSaving || saveSuccess}
+                >
+                  {saveSuccess ? "Saved!" : isSaving ? "Saving..." : "Save this Comparison"}
+                </button>
+              </div>
+            )}
           </div>
           <div className="workspace-content">
             <ChatPanel sessionId={sessionId} videoData={{ video_a: videoA, video_b: videoB }} />

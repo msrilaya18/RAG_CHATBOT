@@ -11,6 +11,9 @@ from models.schemas import (
     AnalyzeResponse,
     ChatRequest,
     ChatChunk,
+    AuthRequest,
+    TokenResponse,
+    SaveSessionRequest
 )
 from services.transcript import get_youtube_transcript, get_instagram_transcript
 from services.metadata import get_youtube_metadata, get_instagram_metadata
@@ -58,6 +61,11 @@ app.add_middleware(
 embeddings_service: VideoEmbeddingService = None  # type: ignore
 rag_engine: RAGEngine = None  # type: ignore
 
+from database import get_db_connection
+from auth import verify_password, get_password_hash, create_access_token, get_current_user
+from fastapi import Depends
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 import json
 import os
 
@@ -294,3 +302,75 @@ async def delete_session(session_id: str):
         save_sessions(sessions)
         return {"status": "deleted"}
     raise HTTPException(status_code=404, detail="Session not found.")
+
+
+@app.post("/api/auth/register", response_model=TokenResponse)
+def register(request: AuthRequest):
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM users WHERE username = ?", (request.username,))
+        if cursor.fetchone():
+            raise HTTPException(status_code=400, detail="Username already registered")
+        
+        hashed_password = get_password_hash(request.password)
+        cursor.execute(
+            "INSERT INTO users (username, password_hash) VALUES (?, ?)",
+            (request.username, hashed_password)
+        )
+        conn.commit()
+        
+        cursor.execute("SELECT id FROM users WHERE username = ?", (request.username,))
+        user = cursor.fetchone()
+        access_token = create_access_token(data={"sub": str(user["id"])})
+        return {"access_token": access_token, "token_type": "bearer"}
+
+@app.post("/api/auth/login", response_model=TokenResponse)
+def login(request: AuthRequest):
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, password_hash FROM users WHERE username = ?", (request.username,))
+        user = cursor.fetchone()
+        
+        if not user or not verify_password(request.password, user["password_hash"]):
+            raise HTTPException(status_code=401, detail="Incorrect username or password")
+            
+        access_token = create_access_token(data={"sub": str(user["id"])})
+        return {"access_token": access_token, "token_type": "bearer"}
+
+@app.post("/api/save-session")
+def save_session(request: SaveSessionRequest, user_id: int = Depends(get_current_user)):
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO saved_sessions (user_id, session_id, video_a_meta, video_b_meta) VALUES (?, ?, ?, ?)",
+            (user_id, request.session_id, json.dumps(request.video_a_meta), json.dumps(request.video_b_meta))
+        )
+        conn.commit()
+        return {"status": "saved"}
+
+@app.get("/api/my-sessions")
+def my_sessions(user_id: int = Depends(get_current_user)):
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT session_id, video_a_meta, video_b_meta, created_at FROM saved_sessions WHERE user_id = ? ORDER BY created_at DESC",
+            (user_id,)
+        )
+        rows = cursor.fetchall()
+        sessions_list = []
+        for row in rows:
+            sessions_list.append({
+                "session_id": row["session_id"],
+                "video_a": json.loads(row["video_a_meta"]),
+                "video_b": json.loads(row["video_b_meta"]),
+                "created_at": row["created_at"]
+            })
+        return {"sessions": sessions_list}
+
+
+# Serve static files from Next.js export
+FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend", "out")
+if os.path.exists(FRONTEND_DIR):
+    app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
+else:
+    logger.warning("Frontend build directory not found. Static files won't be served.")

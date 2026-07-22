@@ -59,3 +59,19 @@ class ChatChunk(BaseModel):
     type: str              # 'token' | 'citation' | 'done' | 'error'
     content: str = ""
     citations: List[Citation] = []
+
+
+class AuthRequest(BaseModel):
+    username: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
+class SaveSessionRequest(BaseModel):
+    session_id: str
+    video_a_meta: dict
+    video_b_meta: dict
